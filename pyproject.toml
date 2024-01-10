@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "rates_app"
+version = "0.1.0"
+description = ""
+authors = ["Alexandr Shostak <shostaka@rocketdata.io>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+requests = "^2.31.0"
+pydantic = "^2.5.3"
+websockets = "^12.0"
+python-dotenv = "^1.0.0"
+sqlalchemy = "^2.0.25"
+alembic = "^1.13.1"
+celery = "^5.3.6"
+psycopg = {extras = ["binary"], version = "^3.1.17"}
+isort = "^5.13.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,73 @@
+services:
+
+  rates_app:
+    build: .
+    restart: always
+    hostname: rates_app
+    environment:
+      SQLALCHEMY_DATABASE_HOST: postgres
+      SQLALCHEMY_DATABASE_PORT: 5432
+      SERVER_HOST: rates_app
+    depends_on:
+      - 'postgres'
+      - 'rabbitmq'
+    command: bash ./entrypoint.sh
+    env_file: .env
+    ports:
+      - '127.0.0.1:8080:8080'
+
+  postgres:
+    image: postgres:13
+    restart: always
+    hostname: postgres
+    environment:
+      POSTGRES_DB: ${SQLALCHEMY_DATABASE_NAME}
+      POSTGRES_USER: ${SQLALCHEMY_DATABASE_USER}
+      POSTGRES_PASSWORD: ${SQLALCHEMY_DATABASE_PASSWORD}
+    volumes:
+      - './rates_app/database_module/:/docker-entrypoint-initdb.d'
+      - './docker_data/postgres/data/:/var/lib/postgresql/data'
+    ports:
+      - '127.0.0.1:5440:5432'
+
+  rabbitmq:
+    image: rabbitmq
+    restart: always
+    hostname: rabbitmq
+    expose:
+      - '5672'
+      - '15672'
+    env_file: .env
+    volumes:
+      - './docker_data/rabbitmq/:/var/lib/rabbitmq/'
+
+  celery:
+      build: .
+      command: celery -A rates_app worker -l INFO
+      environment:
+        SERVER_HOST: rates_app
+        SQLALCHEMY_DATABASE_HOST: postgres
+        SQLALCHEMY_DATABASE_PORT: 5432
+      env_file: .env
+      depends_on:
+        - 'postgres'
+        - 'rabbitmq'
+      volumes:
+        - './docker_data/celery/:/var/lib/celery'
+
+  celery_beat:
+    build: .
+    command: celery -A rates_app beat -l INFO
+    restart: always
+    environment:
+      SERVER_HOST: rates_app
+    env_file: .env
+    depends_on:
+      - 'postgres'
+      - 'rabbitmq'
+      - 'rates_app'
+    volumes:
+      - './docker_data/celery/:/var/lib/celery'
+
+volumes:
+  docker_data:

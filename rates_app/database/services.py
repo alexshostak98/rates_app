@@ -2,12 +2,12 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import select
 
-from rates_app.database_module.engine import async_session
-from rates_app.database_module.models import Asset as AssetORM
-from rates_app.database_module.models import Rate as RateORM
+from rates_app.database.engine import async_session
+from rates_app.database.models import Asset as AssetORM
+from rates_app.database.models import Rate as RateORM
 from rates_app.utils import get_unix_timestamp
-from rates_app.websocket_module.websocket_types import Asset as AssetModel
-from rates_app.websocket_module.websocket_types import Rate as RateModel
+from rates_app.websocket.websocket_types import Asset as AssetModel
+from rates_app.websocket.websocket_types import Rate as RateModel
 
 
 class DBService:

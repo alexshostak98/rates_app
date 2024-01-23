@@ -1,8 +1,8 @@
 import asyncio
 
 from rates_app.constants import RequiredAssets
-from rates_app.database_module.engine import async_session
-from rates_app.database_module.models import Asset
+from rates_app.database.engine import async_session
+from rates_app.database.models import Asset
 
 
 async def fill_asset_database():

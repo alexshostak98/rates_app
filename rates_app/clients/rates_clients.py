@@ -7,7 +7,7 @@ from json import JSONDecodeError, loads
 import requests
 
 from rates_app.utils import get_unix_timestamp
-from rates_app.websocket_module.websocket_types import Rate
+from rates_app.websocket.websocket_types import Rate
 
 
 class AbstractRatesClient(ABC):

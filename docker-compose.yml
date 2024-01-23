@@ -25,7 +25,6 @@ services:
       POSTGRES_USER: ${SQLALCHEMY_DATABASE_USER}
       POSTGRES_PASSWORD: ${SQLALCHEMY_DATABASE_PASSWORD}
     volumes:
-      - './rates_app/database_module/:/docker-entrypoint-initdb.d'
       - './docker_data/postgres/data/:/var/lib/postgresql/data'
     ports:
       - '127.0.0.1:5440:5432'

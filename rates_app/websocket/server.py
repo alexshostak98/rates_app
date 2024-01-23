@@ -147,8 +147,8 @@ class WebsocketManager:
             try:
                 handle_func = getattr(self, f'handle_{action}_action')
                 await handle_func(websocket, client_event)
-            except AttributeError as exc:
-                message = constants.ErrorMessages.unsupported_action.format(action=exc)
+            except AttributeError:
+                message = constants.ErrorMessages.unsupported_action.format(action=action)
                 await self.send_error_message(websocket, message=message)
                 # await self.produce_help_message(websocket=websocket)
                 continue

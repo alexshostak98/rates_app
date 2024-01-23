@@ -3,7 +3,7 @@ import asyncio
 import websockets
 
 from rates_app import settings
-from rates_app.websocket_module.server import WebsocketManager
+from rates_app.websocket.server import WebsocketManager
 
 
 async def main():

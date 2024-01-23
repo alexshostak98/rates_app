@@ -1,19 +1,16 @@
 from collections import defaultdict
+from pydantic import ValidationError
 
 import websockets
 from websockets import WebSocketServerProtocol
 
-from rates_app.clients_module.rates_clients import (
+from rates_app.clients.rates_clients import (
     AbstractRatesClient,
     EmcontRatesClient,
 )
-from rates_app.constants import (
-    ASSET_HISTORY_TIME_RANGE,
-    MAX_SUBSCRIPTIONS_COUNT_PER_CLIENT,
-    ErrorMessages,
-)
-from rates_app.database_module.database_service import DBService
-from rates_app.websocket_module import websocket_types as types
+from rates_app import constants
+from rates_app.database.services import DBService
+from rates_app.websocket import websocket_types as types
 
 
 class WebsocketManager:
@@ -34,7 +31,7 @@ class WebsocketManager:
     async def assets_history(self, websocket: WebSocketServerProtocol, asset_id: int) -> None:
         asset_history = await self.database_service.get_rates_history_by_asset_id_for_time_range(
             asset_id,
-            ASSET_HISTORY_TIME_RANGE,
+            constants.ASSET_HISTORY_TIME_RANGE,
         )
         server_event = types.WebSocketServerResponse(
             action=types.ServerAction.history,
@@ -56,9 +53,9 @@ class WebsocketManager:
             assets = await self.database_service.get_assets()
             asset_ids = set(asset.id for asset in assets)
             if asset_id not in asset_ids:
-                message = ErrorMessages.wrong_asset_id.format(asset_id=asset_id)
+                message = constants.ErrorMessages.wrong_asset_id.format(asset_id=asset_id)
         else:
-            message = ErrorMessages.wrong_start_action
+            message = constants.ErrorMessages.wrong_start_action
         if message:
             await self.send_error_message(websocket, message)
         return message
@@ -73,7 +70,7 @@ class WebsocketManager:
         if error_message is not None:
             return
         subscriptions_for_current_client = self.subscriptions_count[websocket]
-        if len(subscriptions_for_current_client) >= MAX_SUBSCRIPTIONS_COUNT_PER_CLIENT:
+        if len(subscriptions_for_current_client) >= constants.MAX_SUBSCRIPTIONS_COUNT_PER_CLIENT:
             await self.unsubscribe(websocket, subscriptions_for_current_client.pop(0))
         subscriptions_for_current_client.append(asset_id)
         await self.subscribe(websocket, asset_id)
@@ -102,21 +99,56 @@ class WebsocketManager:
         for rate in rates:
             asset_id = rate.asset_id
             if asset_id in self.clients:
-                message = types.WebSocketServerResponse(
+                server_event = types.WebSocketServerResponse(
                     action=types.ServerAction.point,
                     message=rate
                 ).model_dump_json(by_alias=True)
-                websockets.broadcast(self.clients[asset_id], message)
+                websockets.broadcast(self.clients[asset_id], server_event)
+
+    @staticmethod
+    def _get_help_event(action_type):
+        server_event = types.WebSocketClientRequest(
+            action=getattr(types.ClientAction, action_type),
+            message=getattr(types.ExampleClientRequestMapper, action_type),
+        )
+        return types.HelpItem(
+            priority=getattr(types.ClientActionPriorities, action_type),
+            action=server_event,
+            help_message=getattr(constants.HelpMessage, action_type),
+        )
+
+    async def handle_help_action(
+        self,
+        websocket: WebSocketServerProtocol,
+        client_event: types.WebSocketClientRequest | None,
+
+    ):
+        help_items = [self._get_help_event(action_type) for action_type in types.ClientAction]
+        help_server_event = types.WebSocketServerResponse(
+            action=types.ServerAction.help,
+            message=types.HelpMessage(actions=help_items)
+        ).model_dump_json(by_alias=True)
+        await websocket.send(help_server_event)
+
+    async def produce_help_message(self, websocket):
+        await self.handle_help_action(websocket, client_event=None)
 
     async def handler(self, websocket: WebSocketServerProtocol) -> None:
+        await self.produce_help_message(websocket)
         async for websocket_message in websocket:
-            client_event = types.WebSocketClientRequest.model_validate_json(websocket_message)
-            action = client_event.action
+            try:
+                client_event = types.WebSocketClientRequest.model_validate_json(websocket_message)
+                action = client_event.action
+            except ValidationError:
+                message = constants.ErrorMessages.validation_error
+                await self.send_error_message(websocket, message=message)
+                # await self.produce_help_message(websocket)
+                continue
             try:
                 handle_func = getattr(self, f'handle_{action}_action')
                 await handle_func(websocket, client_event)
-            except AttributeError:
-                actions = tuple(action for action in types.ClientAction)
-                message = ErrorMessages.unsupported_action.format(action=action, actions=actions)
+            except AttributeError as exc:
+                message = constants.ErrorMessages.unsupported_action.format(action=exc)
                 await self.send_error_message(websocket, message=message)
+                # await self.produce_help_message(websocket=websocket)
                 continue
